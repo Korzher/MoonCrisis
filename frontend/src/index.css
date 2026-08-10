@@ -48,3 +48,12 @@ button:hover { background: #ffd97a; }
 .events-list { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; font-size: 13px; }
 .event .day { color: #f6c453; font-weight: 700; margin-right: 6px; }
 .muted { color: #6b7691; }
+
+.shop-btn { background: #5a7bd5; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.modal { background: #1a2034; border: 1px solid #2f3a55; border-radius: 14px; padding: 20px; width: min(90vw, 420px); display: flex; flex-direction: column; gap: 14px; }
+.modal h2 { margin: 0; }
+.modal section { background: #151b2c; border-radius: 10px; padding: 12px; }
+.modal h3 { margin: 0 0 8px; font-size: 14px; color: #9aa7bd; }
+.row { display: flex; gap: 8px; margin-top: 4px; }
+.row button { font-size: 13px; padding: 6px 10px; }
