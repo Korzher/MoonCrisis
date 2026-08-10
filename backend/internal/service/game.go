@@ -119,110 +119,110 @@ func (s *Service) AssignRover(ctx context.Context, roverID, orderID int) error {
 
 // NextDay — завершить день: обработать доставки, сгенерировать заказы, проверить конец игры
 func (s *Service) NextDay(ctx context.Context) error {
-	gs, err := s.repo.GetGameState(ctx)
-	if err != nil {
-		return err
-	}
-	if gs.GameOver {
-		return errors.New("игра окончена")
-	}
-
-	gs.Day++
-
-	// Обработка активных доставок
-	deliveries, err := s.repo.ListActiveDeliveries(ctx)
-	if err != nil {
-		return err
-	}
-	for _, d := range deliveries {
-		rv, err := s.repo.GetRover(ctx, d.RoverID)
+	return s.repo.Tx(ctx, func(t *repository.Repository) error {
+		gs, err := t.GetGameState(ctx)
 		if err != nil {
 			return err
 		}
-		o, err := s.repo.GetOrder(ctx, d.OrderID)
+		if gs.GameOver {
+			return errors.New("игра окончена")
+		}
+
+		gs.Day++
+
+		// Обработка активных доставок
+		deliveries, err := t.ListActiveDeliveries(ctx)
 		if err != nil {
 			return err
 		}
+		for _, d := range deliveries {
+			rv, err := t.GetRover(ctx, d.RoverID)
+			if err != nil {
+				return err
+			}
+			o, err := t.GetOrder(ctx, d.OrderID)
+			if err != nil {
+				return err
+			}
 
-		duration := travelDays(rv, o.X, o.Y, o.Weight)
-		if gs.Day >= d.StartedDay+duration {
-			// Доставка завершена — проверяем риск
-			z := zoneAt(o.X, o.Y)
-			risk := z.risk + o.Risk
-			if rand.Intn(100) < risk {
-				// Провал
-				gs.Rating -= 10
-				rv.Battery = 0
-				rv.Status = "broken"
-				rv.X, rv.Y = BaseX, BaseY
-				s.repo.UpdateRover(ctx, rv)
-				s.repo.UpdateOrderStatus(ctx, o.ID, "failed")
-				s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
-				s.repo.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
-			} else {
-				// Успех только если НЕ просрочен
-				if o.Deadline < gs.Day {
-					// Опоздали — без награды и рейтинга
-					rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-					if rv.Battery < 0 {
-						rv.Battery = 0
-					}
-					rv.Status = "idle"
+			duration := travelDays(rv, o.X, o.Y, o.Weight)
+			if gs.Day >= d.StartedDay+duration {
+				z := zoneAt(o.X, o.Y)
+				risk := z.risk + o.Risk
+				if rand.Intn(100) < risk {
+					// Провал
+					gs.Rating -= 10
+					rv.Battery = 0
+					rv.Status = "broken"
 					rv.X, rv.Y = BaseX, BaseY
-					s.repo.UpdateRover(ctx, rv)
-					s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
-					s.repo.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
+					t.UpdateRover(ctx, rv)
+					t.UpdateOrderStatus(ctx, o.ID, "failed")
+					t.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
+					t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
 				} else {
-					gs.Money += o.Reward
-					gs.Rating += 5
-					rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-					if rv.Battery < 0 {
-						rv.Battery = 0
+					if o.Deadline < gs.Day {
+						// Опоздали — без награды
+						rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
+						if rv.Battery < 0 {
+							rv.Battery = 0
+						}
+						rv.Status = "idle"
+						rv.X, rv.Y = BaseX, BaseY
+						t.UpdateRover(ctx, rv)
+						t.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
+						t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
+					} else {
+						gs.Money += o.Reward
+						gs.Rating += 5
+						rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
+						if rv.Battery < 0 {
+							rv.Battery = 0
+						}
+						rv.Status = "idle"
+						rv.X, rv.Y = BaseX, BaseY
+						t.UpdateRover(ctx, rv)
+						t.UpdateOrderStatus(ctx, o.ID, "completed")
+						t.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
+						t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
 					}
-					rv.Status = "idle"
-					rv.X, rv.Y = BaseX, BaseY
-					s.repo.UpdateRover(ctx, rv)
-					s.repo.UpdateOrderStatus(ctx, o.ID, "completed")
-					s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
-					s.repo.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
 				}
 			}
 		}
-	}
 
-	// Просроченные заказы
-	orders, err := s.repo.ListOrders(ctx)
-	if err != nil {
-		return err
-	}
-	for _, o := range orders {
-		if o.Status == "active" && o.Deadline < gs.Day {
-			gs.Rating -= 5
-			s.repo.UpdateOrderStatus(ctx, o.ID, "expired")
-			s.repo.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
+		// Просроченные заказы
+		orders, err := t.ListOrders(ctx)
+		if err != nil {
+			return err
 		}
-	}
+		for _, o := range orders {
+			if o.Status == "active" && o.Deadline < gs.Day {
+				gs.Rating -= 5
+				t.UpdateOrderStatus(ctx, o.ID, "expired")
+				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
+			}
+		}
 
-	// Генерация новых заказов (2-3 в день)
-	for i := 0; i < 2+rand.Intn(2); i++ {
-		s.generateOrder(ctx, gs.Day)
-	}
+		// Генерация новых заказов
+		for i := 0; i < 2+rand.Intn(2); i++ {
+			generateOrder(ctx, t, gs.Day)
+		}
 
-	// Конец игры
-	if gs.Rating <= 0 {
-		gs.GameOver = true
-		s.repo.AddEvent(ctx, gs.Day, "Рейтинг базы упал до нуля — игра окончена")
-	}
-	if gs.Day >= 20 {
-		gs.GameOver = true
-		s.repo.AddEvent(ctx, gs.Day, "Достигнут 20-й день — игра окончена")
-	}
+		// Конец игры
+		if gs.Rating <= 0 {
+			gs.GameOver = true
+			t.AddEvent(ctx, gs.Day, "Рейтинг базы упал до нуля — игра окончена")
+		}
+		if gs.Day >= 20 {
+			gs.GameOver = true
+			t.AddEvent(ctx, gs.Day, "Достигнут 20-й день — игра окончена")
+		}
 
-	return s.repo.UpdateGameState(ctx, gs)
+		return t.UpdateGameState(ctx, gs)
+	})
 }
 
 // generateOrder — создать случайный заказ
-func (s *Service) generateOrder(ctx context.Context, day int) {
+func generateOrder(ctx context.Context, r *repository.Repository, day int) {
 	x := rand.Intn(10)
 	y := rand.Intn(10)
 	z := zoneAt(x, y)
@@ -237,10 +237,10 @@ func (s *Service) generateOrder(ctx context.Context, day int) {
 		weight = 1000
 		reward = 500
 		risk = 60
-		y = rand.Intn(4) // верх карты
+		y = rand.Intn(4)
 	}
 
-	s.repo.CreateOrder(ctx, domain.Order{
+	r.CreateOrder(ctx, domain.Order{
 		Title:    "Груз-" + itoa(weight) + "кг",
 		Weight:   weight,
 		Reward:   reward,
@@ -259,12 +259,15 @@ func itoa(n int) string {
 
 // RepairRover — починить сломанный ровер
 func (s *Service) RepairRover(ctx context.Context, roverID int) error {
-	gs, err := s.repo.GetGameState(ctx)
-	if err != nil {
-		return err
-	}
-	if gs.Money >= 100 {
-		rv, err := s.repo.GetRover(ctx, roverID)
+	return s.repo.Tx(ctx, func(t *repository.Repository) error {
+		gs, err := t.GetGameState(ctx)
+		if err != nil {
+			return err
+		}
+		if gs.Money < 100 {
+			return errors.New("недостаточно средств")
+		}
+		rv, err := t.GetRover(ctx, roverID)
 		if err != nil {
 			return err
 		}
@@ -273,23 +276,27 @@ func (s *Service) RepairRover(ctx context.Context, roverID int) error {
 		}
 		gs.Money -= 100
 		rv.Status = "idle"
-		s.repo.UpdateRover(ctx, rv)
-		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+		if err := t.UpdateRover(ctx, rv); err != nil {
 			return err
 		}
-		return s.repo.AddEvent(ctx, gs.Day, "Ровер отремонтирован: -100₽")
-	}
-	return errors.New("недостаточно средств")
+		if err := t.UpdateGameState(ctx, gs); err != nil {
+			return err
+		}
+		return t.AddEvent(ctx, gs.Day, "Ровер отремонтирован: -100₽")
+	})
 }
 
 // ChargeRover — полная зарядка батареи
 func (s *Service) ChargeRover(ctx context.Context, roverID int) error {
-	gs, err := s.repo.GetGameState(ctx)
-	if err != nil {
-		return err
-	}
-	if gs.Money >= 50 {
-		rv, err := s.repo.GetRover(ctx, roverID)
+	return s.repo.Tx(ctx, func(t *repository.Repository) error {
+		gs, err := t.GetGameState(ctx)
+		if err != nil {
+			return err
+		}
+		if gs.Money < 50 {
+			return errors.New("недостаточно средств")
+		}
+		rv, err := t.GetRover(ctx, roverID)
 		if err != nil {
 			return err
 		}
@@ -298,25 +305,29 @@ func (s *Service) ChargeRover(ctx context.Context, roverID int) error {
 		}
 		gs.Money -= 50
 		rv.Battery = 100
-		s.repo.UpdateRover(ctx, rv)
-		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+		if err := t.UpdateRover(ctx, rv); err != nil {
 			return err
 		}
-		return s.repo.AddEvent(ctx, gs.Day, "Батарея заряжена: -50₽")
-	}
-	return errors.New("недостаточно средств")
+		if err := t.UpdateGameState(ctx, gs); err != nil {
+			return err
+		}
+		return t.AddEvent(ctx, gs.Day, "Батарея заряжена: -50₽")
+	})
 }
 
 // BuyRover — купить новый ровер
 func (s *Service) BuyRover(ctx context.Context) error {
-	gs, err := s.repo.GetGameState(ctx)
-	if err != nil {
-		return err
-	}
 	const cost = 500
-	if gs.Money >= cost {
+	return s.repo.Tx(ctx, func(t *repository.Repository) error {
+		gs, err := t.GetGameState(ctx)
+		if err != nil {
+			return err
+		}
+		if gs.Money < cost {
+			return errors.New("недостаточно средств")
+		}
 		gs.Money -= cost
-		if _, err := s.repo.CreateRover(ctx, domain.Rover{
+		if _, err := t.CreateRover(ctx, domain.Rover{
 			Name:     "Ровер-" + itoa(gs.Day+1),
 			Battery:  100,
 			Capacity: 200,
@@ -327,12 +338,11 @@ func (s *Service) BuyRover(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
-		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+		if err := t.UpdateGameState(ctx, gs); err != nil {
 			return err
 		}
-		return s.repo.AddEvent(ctx, gs.Day, "Куплен новый ровер: -500₽")
-	}
-	return errors.New("недостаточно средств")
+		return t.AddEvent(ctx, gs.Day, "Куплен новый ровер: -500₽")
+	})
 }
 
 // GetAvailableRovers — роверы, доступные для назначения
