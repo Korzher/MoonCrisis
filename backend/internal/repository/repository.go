@@ -138,7 +138,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, d domain.Delivery) (int
 
 func (r *Repository) ListActiveDeliveries(ctx context.Context) ([]domain.Delivery, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, rover_id, order_id, started_day, finish_day, result, duration
+		`SELECT id, rover_id, order_id, started_day, finish_day, COALESCE(result, ''), duration
 		 FROM deliveries WHERE finish_day IS NULL ORDER BY id`)
 	if err != nil {
 		return nil, err
