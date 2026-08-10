@@ -8,7 +8,7 @@ import (
 
 func (r *Repository) CreateDelivery(ctx context.Context, d domain.Delivery) (int, error) {
 	var id int
-	err := r.q.QueryRow(ctx,
+	err := r.db.QueryRow(ctx,
 		`INSERT INTO deliveries (rover_id, order_id, started_day) VALUES ($1, $2, $3) RETURNING id`,
 		d.RoverID, d.OrderID, d.StartedDay,
 	).Scan(&id)
@@ -16,7 +16,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, d domain.Delivery) (int
 }
 
 func (r *Repository) ListActiveDeliveries(ctx context.Context) ([]domain.Delivery, error) {
-	rows, err := r.q.Query(ctx,
+	rows, err := r.db.Query(ctx,
 		`SELECT id, rover_id, order_id, started_day, finish_day, COALESCE(result, ''), duration
 		 FROM deliveries WHERE finish_day IS NULL ORDER BY id`)
 	if err != nil {
@@ -36,7 +36,7 @@ func (r *Repository) ListActiveDeliveries(ctx context.Context) ([]domain.Deliver
 }
 
 func (r *Repository) CompleteDelivery(ctx context.Context, id int, finishDay int, result string, duration int) error {
-	_, err := r.q.Exec(ctx,
+	_, err := r.db.Exec(ctx,
 		`UPDATE deliveries SET finish_day = $1, result = $2, duration = $3 WHERE id = $4`,
 		finishDay, result, duration, id,
 	)
