@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { api } from './client'
+import { api } from './api/client'
 import MenuScreen from './components/MenuScreen'
+import GameScreen from './components/GameScreen'
 import './index.css'
 
 export default function App() {
@@ -16,7 +17,7 @@ export default function App() {
       {screen === 'menu' ? (
         <MenuScreen onStart={handleStart} />
       ) : (
-        <div className="placeholder">Здесь будет карта Луны 🌑</div>
+        <GameScreen onMenu={() => setScreen('menu')} />
       )}
     </div>
   )
