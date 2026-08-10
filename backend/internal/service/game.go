@@ -44,7 +44,7 @@ func batteryPerCell(weight int) float64 {
 func travelDays(rv domain.Rover, x, y int) int {
 	dist := math.Abs(float64(x-BaseX)) + math.Abs(float64(y-BaseY))
 	z := zoneAt(x, y)
-	days := dist / (float64(rv.Speed) * z.speedMult)
+	days := (2 * dist) / (float64(rv.Speed) * z.speedMult) // туда + обратно
 	return int(math.Ceil(days))
 }
 
@@ -329,6 +329,15 @@ func (s *Service) GetAvailableRovers(ctx context.Context) ([]domain.Rover, error
 
 func (s *Service) InitGame(ctx context.Context) error {
 	gs := domain.GameState{Day: 1, Money: 200, Rating: 100, GameOver: false}
+
+	if err := s.repo.ResetGame(ctx); err != nil {
+		return err
+	}
+
+	if err := s.repo.UpsertGameState(ctx, gs); err != nil {
+		return err
+	}
+
 	if err := s.repo.UpdateGameState(ctx, gs); err != nil {
 		return err
 	}

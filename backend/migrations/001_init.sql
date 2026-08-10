@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS game_state (
     game_over   BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+INSERT INTO game_state (id) VALUES (1) ON CONFLICT DO NOTHING;
+
 -- Роверы
 CREATE TABLE IF NOT EXISTS rovers (
     id          SERIAL PRIMARY KEY,
@@ -16,7 +18,7 @@ CREATE TABLE IF NOT EXISTS rovers (
     battery     INT NOT NULL DEFAULT 100,
     capacity    INT NOT NULL,
     speed       INT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'idle'
+    status      TEXT NOT NULL DEFAULT 'idle',
     x           INT NOT NULL,
     y           INT NOT NULL
 );

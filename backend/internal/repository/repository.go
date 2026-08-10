@@ -188,3 +188,33 @@ func (r *Repository) ListEvents(ctx context.Context) ([]domain.Event, error) {
 	}
 	return events, rows.Err()
 }
+
+// ResetGame — удаляет все данные прошлой партии (порядок важен из-за FK).
+func (r *Repository) ResetGame(ctx context.Context) error {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM deliveries`); err != nil {
+		return err
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM events`); err != nil {
+		return err
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM orders`); err != nil {
+		return err
+	}
+	if _, err := r.pool.Exec(ctx, `DELETE FROM rovers`); err != nil {
+		return err
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM game_state`)
+	return err
+}
+
+// UpsertGameState — всегда гарантирует наличие единственной строки id=1.
+func (r *Repository) UpsertGameState(ctx context.Context, gs domain.GameState) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO game_state (id, day, money, rating, game_over)
+		 VALUES (1, $1, $2, $3, $4)
+		 ON CONFLICT (id) DO UPDATE SET
+		   day = $1, money = $2, rating = $3, game_over = $4`,
+		gs.Day, gs.Money, gs.Rating, gs.GameOver,
+	)
+	return err
+}
