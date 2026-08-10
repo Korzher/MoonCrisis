@@ -235,3 +235,129 @@ func (s *Service) generateOrder(ctx context.Context, day int) {
 func itoa(n int) string {
 	return strconv.Itoa(n)
 }
+
+// RepairRover — починить сломанный ровер
+func (s *Service) RepairRover(ctx context.Context, roverID int) error {
+	gs, err := s.repo.GetGameState(ctx)
+	if err != nil {
+		return err
+	}
+	if gs.Money >= 100 {
+		rv, err := s.repo.GetRover(ctx, roverID)
+		if err != nil {
+			return err
+		}
+		if rv.Status != "broken" {
+			return errors.New("ровер не сломан")
+		}
+		gs.Money -= 100
+		rv.Status = "idle"
+		s.repo.UpdateRover(ctx, rv)
+		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+			return err
+		}
+		return s.repo.AddEvent(ctx, gs.Day, "Ровер отремонтирован: -100₽")
+	}
+	return errors.New("недостаточно средств")
+}
+
+// ChargeRover — полная зарядка батареи
+func (s *Service) ChargeRover(ctx context.Context, roverID int) error {
+	gs, err := s.repo.GetGameState(ctx)
+	if err != nil {
+		return err
+	}
+	if gs.Money >= 50 {
+		rv, err := s.repo.GetRover(ctx, roverID)
+		if err != nil {
+			return err
+		}
+		if rv.Status != "idle" {
+			return errors.New("ровер занят")
+		}
+		gs.Money -= 50
+		rv.Battery = 100
+		s.repo.UpdateRover(ctx, rv)
+		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+			return err
+		}
+		return s.repo.AddEvent(ctx, gs.Day, "Батарея заряжена: -50₽")
+	}
+	return errors.New("недостаточно средств")
+}
+
+// BuyRover — купить новый ровер
+func (s *Service) BuyRover(ctx context.Context) error {
+	gs, err := s.repo.GetGameState(ctx)
+	if err != nil {
+		return err
+	}
+	const cost = 500
+	if gs.Money >= cost {
+		gs.Money -= cost
+		s.repo.CreateRover(ctx, domain.Rover{
+			Name:     "Ровер-" + itoa(gs.Day+1),
+			Battery:  100,
+			Capacity: 200,
+			Speed:    2,
+			Status:   "idle",
+			X:        BaseX,
+			Y:        BaseY,
+		})
+		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+			return err
+		}
+		return s.repo.AddEvent(ctx, gs.Day, "Куплен новый ровер: -500₽")
+	}
+	return errors.New("недостаточно средств")
+}
+
+// GetAvailableRovers — роверы, доступные для назначения
+func (s *Service) GetAvailableRovers(ctx context.Context) ([]domain.Rover, error) {
+	rovers, err := s.repo.ListRovers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var avail []domain.Rover
+	for _, rv := range rovers {
+		if rv.Status == "idle" {
+			avail = append(avail, rv)
+		}
+	}
+	return avail, nil
+}
+
+func (s *Service) InitGame(ctx context.Context) error {
+	gs := domain.GameState{Day: 1, Money: 200, Rating: 100, GameOver: false}
+	if err := s.repo.UpdateGameState(ctx, gs); err != nil {
+		return err
+	}
+
+	// Стартовый ровер
+	rv := domain.Rover{
+		Name:     "Ровер-1",
+		Battery:  100,
+		Capacity: 100,
+		Speed:    2,
+		Status:   "idle",
+		X:        BaseX,
+		Y:        BaseY,
+	}
+	s.repo.CreateRover(ctx, rv)
+
+	// Пять начальных заказов
+	orders := []domain.Order{
+		{Title: "Углеводороды", Weight: 120, Reward: 100, Deadline: 5, Risk: 20, X: 3, Y: 3, Status: "available"},
+		{Title: "Кислородные баллоны", Weight: 80, Reward: 70, Deadline: 4, Risk: 10, X: 7, Y: 6, Status: "available"},
+		{Title: "Образцы реголита", Weight: 40, Reward: 50, Deadline: 3, Risk: 0, X: 2, Y: 8, Status: "available"},
+		{Title: "Научное оборудование", Weight: 250, Reward: 200, Deadline: 7, Risk: 30, X: 6, Y: 2, Status: "available"},
+		{Title: "Мегалит-1000", Weight: 1000, Reward: 500, Deadline: 8, Risk: 60, X: 0, Y: 0, Status: "available"},
+	}
+	for _, o := range orders {
+		if _, err := s.repo.CreateOrder(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	return s.repo.AddEvent(ctx, 1, "Новая игра начата. День 1")
+}
