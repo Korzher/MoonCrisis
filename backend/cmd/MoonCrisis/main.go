@@ -61,8 +61,8 @@ func NewRouter(h *handlers.Handlers) http.Handler {
 	return mux
 }
 
-func NewServer(lc fx.Lifecycle, h http.Handler) *http.Server {
-	srv := &http.Server{Addr: ":8080", Handler: h}
+func NewServer(lc fx.Lifecycle, cfg datasource.Config, h http.Handler) *http.Server {
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: h}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go srv.ListenAndServe()

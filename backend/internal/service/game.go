@@ -41,11 +41,12 @@ func batteryPerCell(weight int) float64 {
 }
 
 // Время пути в днях: манхэттенское расстояние / скорость ровера / множитель зоны
-func travelDays(rv domain.Rover, x, y int) int {
+func travelDays(rv domain.Rover, x, y int, weight int) int {
 	dist := math.Abs(float64(x-BaseX)) + math.Abs(float64(y-BaseY))
 	z := zoneAt(x, y)
-	days := (2 * dist) / (float64(rv.Speed) * z.speedMult) // туда + обратно
-	return int(math.Ceil(days))
+	days := (2 * dist) / (float64(rv.Speed) * z.speedMult)
+	weightFactor := 1.0 + float64(weight)/1500.0 // +66% на 1000 кг
+	return int(math.Ceil(days * weightFactor))
 }
 
 // Расход батареи на весь маршрут (туда и обратно)
@@ -87,13 +88,20 @@ func (s *Service) AssignRover(ctx context.Context, roverID, orderID int) error {
 		return errors.New("не хватает батареи на маршрут")
 	}
 
-	// Помечаем ровер и заказ
-	rv.Status = "on_mission"
-	if err := s.repo.UpdateRover(ctx, rv); err != nil {
+	// Атомарно занимаем ровер и заказ (защита от гонки)
+	ok, err := s.repo.ClaimRover(ctx, rv.ID)
+	if err != nil {
 		return err
 	}
-	if err := s.repo.UpdateOrderStatus(ctx, o.ID, "active"); err != nil {
+	if !ok {
+		return errors.New("ровер занят")
+	}
+	ok, err = s.repo.ClaimOrder(ctx, o.ID)
+	if err != nil {
 		return err
+	}
+	if !ok {
+		return errors.New("заказ недоступен")
 	}
 
 	// Создаём доставку
@@ -136,7 +144,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 			return err
 		}
 
-		duration := travelDays(rv, o.X, o.Y)
+		duration := travelDays(rv, o.X, o.Y, o.Weight)
 		if gs.Day >= d.StartedDay+duration {
 			// Доставка завершена — проверяем риск
 			z := zoneAt(o.X, o.Y)
@@ -152,19 +160,32 @@ func (s *Service) NextDay(ctx context.Context) error {
 				s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
 				s.repo.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
 			} else {
-				// Успех
-				gs.Money += o.Reward
-				gs.Rating += 5
-				rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-				if rv.Battery < 0 {
-					rv.Battery = 0
+				// Успех только если НЕ просрочен
+				if o.Deadline < gs.Day {
+					// Опоздали — без награды и рейтинга
+					rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
+					if rv.Battery < 0 {
+						rv.Battery = 0
+					}
+					rv.Status = "idle"
+					rv.X, rv.Y = BaseX, BaseY
+					s.repo.UpdateRover(ctx, rv)
+					s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
+					s.repo.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
+				} else {
+					gs.Money += o.Reward
+					gs.Rating += 5
+					rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
+					if rv.Battery < 0 {
+						rv.Battery = 0
+					}
+					rv.Status = "idle"
+					rv.X, rv.Y = BaseX, BaseY
+					s.repo.UpdateRover(ctx, rv)
+					s.repo.UpdateOrderStatus(ctx, o.ID, "completed")
+					s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
+					s.repo.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
 				}
-				rv.Status = "idle"
-				rv.X, rv.Y = BaseX, BaseY
-				s.repo.UpdateRover(ctx, rv)
-				s.repo.UpdateOrderStatus(ctx, o.ID, "completed")
-				s.repo.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
-				s.repo.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
 			}
 		}
 	}
@@ -295,7 +316,7 @@ func (s *Service) BuyRover(ctx context.Context) error {
 	const cost = 500
 	if gs.Money >= cost {
 		gs.Money -= cost
-		s.repo.CreateRover(ctx, domain.Rover{
+		if _, err := s.repo.CreateRover(ctx, domain.Rover{
 			Name:     "Ровер-" + itoa(gs.Day+1),
 			Battery:  100,
 			Capacity: 200,
@@ -303,7 +324,9 @@ func (s *Service) BuyRover(ctx context.Context) error {
 			Status:   "idle",
 			X:        BaseX,
 			Y:        BaseY,
-		})
+		}); err != nil {
+			return err
+		}
 		if err := s.repo.UpdateGameState(ctx, gs); err != nil {
 			return err
 		}
@@ -352,7 +375,10 @@ func (s *Service) InitGame(ctx context.Context) error {
 		X:        BaseX,
 		Y:        BaseY,
 	}
-	s.repo.CreateRover(ctx, rv)
+
+	if _, err := s.repo.CreateRover(ctx, rv); err != nil {
+		return err
+	}
 
 	// Пять начальных заказов
 	orders := []domain.Order{

@@ -65,6 +65,12 @@ func (r *Repository) CreateRover(ctx context.Context, rv domain.Rover) (int, err
 	return id, err
 }
 
+func (r *Repository) ClaimRover(ctx context.Context, id int) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE rovers SET status='on_mission' WHERE id=$1 AND status='idle'`, id)
+	return tag.RowsAffected() > 0, err
+}
+
 func (r *Repository) GetRover(ctx context.Context, id int) (domain.Rover, error) {
 	var rv domain.Rover
 	err := r.pool.QueryRow(ctx,
@@ -110,6 +116,12 @@ func (r *Repository) CreateOrder(ctx context.Context, o domain.Order) (int, erro
 		o.Title, o.Weight, o.Reward, o.Deadline, o.Risk, o.X, o.Y, o.Status,
 	).Scan(&id)
 	return id, err
+}
+
+func (r *Repository) ClaimOrder(ctx context.Context, id int) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE orders SET status='active' WHERE id=$1 AND status='available'`, id)
+	return tag.RowsAffected() > 0, err
 }
 
 func (r *Repository) GetOrder(ctx context.Context, id int) (domain.Order, error) {
