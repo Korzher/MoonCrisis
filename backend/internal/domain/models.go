@@ -50,3 +50,9 @@ type Event struct {
 	Day     int    `json:"day"`
 	Message string `json:"message"`
 }
+
+// AssignRequest — тело запроса на запуск доставки
+type AssignRequest struct {
+	RoverID int `json:"rover_id"`
+	OrderID int `json:"order_id"`
+}
