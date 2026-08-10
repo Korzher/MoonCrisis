@@ -65,56 +65,58 @@ func New(repo *repository.Repository) *Service {
 
 // AssignRover — назначить ровер на заказ
 func (s *Service) AssignRover(ctx context.Context, roverID, orderID int) error {
-	rv, err := s.repo.GetRover(ctx, roverID)
-	if err != nil {
-		return err
-	}
-	o, err := s.repo.GetOrder(ctx, orderID)
-	if err != nil {
-		return err
-	}
+	return s.repo.Tx(ctx, func(t *repository.Repository) error {
+		rv, err := t.GetRover(ctx, roverID)
+		if err != nil {
+			return err
+		}
+		o, err := t.GetOrder(ctx, orderID)
+		if err != nil {
+			return err
+		}
 
-	// Валидации
-	if rv.Status != "idle" {
-		return errors.New("ровер занят")
-	}
-	if o.Status != "available" {
-		return errors.New("заказ недоступен")
-	}
-	if o.Weight > rv.Capacity {
-		return errors.New("превышена грузоподъёмность")
-	}
-	if batteryCost(o.X, o.Y, o.Weight) > float64(rv.Battery) {
-		return errors.New("не хватает батареи на маршрут")
-	}
+		// Валидации
+		if rv.Status != "idle" {
+			return errors.New("ровер занят")
+		}
+		if o.Status != "available" {
+			return errors.New("заказ недоступен")
+		}
+		if o.Weight > rv.Capacity {
+			return errors.New("превышена грузоподъёмность")
+		}
+		if batteryCost(o.X, o.Y, o.Weight) > float64(rv.Battery) {
+			return errors.New("не хватает батареи на маршрут")
+		}
 
-	// Атомарно занимаем ровер и заказ (защита от гонки)
-	ok, err := s.repo.ClaimRover(ctx, rv.ID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.New("ровер занят")
-	}
-	ok, err = s.repo.ClaimOrder(ctx, o.ID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.New("заказ недоступен")
-	}
+		// Атомарно занимаем ровер и заказ (защита от гонки)
+		ok, err := t.ClaimRover(ctx, rv.ID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("ровер занят")
+		}
+		ok, err = t.ClaimOrder(ctx, o.ID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("заказ недоступен")
+		}
 
-	// Создаём доставку
-	gs, err := s.repo.GetGameState(ctx)
-	if err != nil {
+		// Создаём доставку (в той же транзакции)
+		gs, err := t.GetGameState(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = t.CreateDelivery(ctx, domain.Delivery{
+			RoverID:    rv.ID,
+			OrderID:    o.ID,
+			StartedDay: gs.Day,
+		})
 		return err
-	}
-	_, err = s.repo.CreateDelivery(ctx, domain.Delivery{
-		RoverID:    rv.ID,
-		OrderID:    o.ID,
-		StartedDay: gs.Day,
 	})
-	return err
 }
 
 // NextDay — завершить день: обработать доставки, сгенерировать заказы, проверить конец игры
@@ -185,6 +187,17 @@ func (s *Service) NextDay(ctx context.Context) error {
 						t.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
 						t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
 					}
+				}
+			} else if elapsed := gs.Day - d.StartedDay; elapsed > 0 {
+				dist := abs(o.X-BaseX) + abs(o.Y-BaseY)
+				reached := (elapsed * 2 * dist) / duration
+				if reached > 2*dist {
+					reached = 2 * dist
+				}
+				nx, ny := roverPos(BaseX, BaseY, o.X, o.Y, reached, dist)
+				if nx != rv.X || ny != rv.Y {
+					rv.X, rv.Y = nx, ny
+					t.UpdateRover(ctx, rv)
 				}
 			}
 		}
@@ -405,4 +418,51 @@ func (s *Service) InitGame(ctx context.Context) error {
 	}
 
 	return s.repo.AddEvent(ctx, 1, "Новая игра начата. День 1")
+}
+
+// roverPos — позиция ровера на маршруте «база → заказ → база» на шаге step.
+// dist — кол-во клеток от базы до цели (манхэттен), всего путь = 2*dist.
+func roverPos(bx, by, gx, gy, step, dist int) (int, int) {
+	if dist == 0 {
+		return bx, by
+	}
+	sx, sy := 1, 1
+	if gx < bx {
+		sx = -1
+	}
+	if gy < by {
+		sy = -1
+	}
+	dx, dy := abs(gx-bx), abs(gy-by)
+
+	if step <= dist {
+		// идём к цели: сначала по X, потом по Y
+		x, y := bx, by
+		if rem := step; rem > dx {
+			x = gx
+			y = by + sy*(rem-dx)
+		} else {
+			x = bx + sx*rem
+			y = by
+		}
+		return x, y
+	}
+	// возврат к базе: сперва обратно по Y, потом по X
+	x, y := gx, gy
+	back := step - dist
+	if rem := back; rem >= dy {
+		y = by
+		x = gx - sx*(rem-dy)
+	} else {
+		y = gy - sy*rem
+		x = gx
+	}
+	return x, y
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
