@@ -42,3 +42,9 @@ button:hover { background: #ffd97a; }
 .coords { color: #7d89a3; font-size: 11px; }
 .send { margin-top: 4px; }
 .error { color: #ff6b6b; background: #3a1f2e; border: 1px solid #7a2f3e; border-radius: 8px; padding: 8px 10px; margin-top: 6px; }
+
+.left { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.events { width: min(90vw, 560px); }
+.events-list { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; font-size: 13px; }
+.event .day { color: #f6c453; font-weight: 700; margin-right: 6px; }
+.muted { color: #6b7691; }

@@ -3,26 +3,32 @@ import { api } from '../client'
 import GameMap from './GameMap'
 import RoverBar from './RoverBar'
 import OrderList from './OrderList'
+import EventsLog from './EventsLog'
 
 export default function GameScreen({ onMenu }) {
   const [state, setState] = useState(null)
   const [rovers, setRovers] = useState([])
   const [orders, setOrders] = useState([])
+  const [events, setEvents] = useState([])
   const [selectedRoverId, setSelectedRoverId] = useState(null)
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function load() {
-    const [st, rv, ord] = await Promise.all([api.state(), api.rovers(), api.orders()])
-    setState(st); setRovers(rv); setOrders(ord)
+    const [st, rv, ord, ev] = await Promise.all([
+      api.state(), api.rovers(), api.orders(), api.events(),
+    ])
+    setState(st); setRovers(rv); setOrders(ord); setEvents(ev)
   }
   useEffect(() => { load() }, [])
 
   async function nextDay() {
     setError('')
-    await api.nextDay()
-    await load()
+    try {
+      await api.nextDay()
+      await load()
+    } catch (e) { setError(e.message) }
   }
 
   async function send() {
@@ -50,11 +56,14 @@ export default function GameScreen({ onMenu }) {
       </header>
 
       <div className="layout">
-        <GameMap
-          rovers={rovers} orders={orders}
-          selectedOrderId={selectedOrderId}
-          onSelectOrder={setSelectedOrderId}
-        />
+        <div className="left">
+          <GameMap
+            rovers={rovers} orders={orders}
+            selectedOrderId={selectedOrderId}
+            onSelectOrder={setSelectedOrderId}
+          />
+          <EventsLog events={events} />
+        </div>
         <aside className="sidebar">
           <RoverBar rovers={rovers} selectedRoverId={selectedRoverId} onSelect={setSelectedRoverId} />
           <OrderList orders={orders} selectedOrderId={selectedOrderId} onSelect={setSelectedOrderId} />
