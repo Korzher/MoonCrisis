@@ -27,7 +27,7 @@ docker compose up --build
 |-----------|------------------|----------------------------------|
 | `db`      | —                | PostgreSQL 16 (внутри сети)      |
 | `backend` | `:8080`          | Go API                           |
-| `frontend`| **:3000**        | React SPA (nginx + прокси на API)|
+| `frontend`| `:3000`        | React SPA (nginx + прокси на API)|
 
 ### Важно про сброс базы
 
