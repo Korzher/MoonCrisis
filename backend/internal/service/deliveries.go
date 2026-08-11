@@ -108,7 +108,7 @@ func turnBack(ctx context.Context, t *repository.Repository, state *domain.GameS
 	state.Rating -= 5
 	_ = t.UpdateOrderStatus(ctx, o.ID, "expired")
 	_ = t.MarkDelivered(ctx, d.ID)
-	return t.AddEvent(ctx, state.Day, "Заказ «"+o.Title+"» просрочен — ровер развернулся и возвращается")
+	return t.AddEvent(ctx, state.Day, "Заказ «"+o.Title+"» просрочен — ровер развернулся и возвращается, рейтинг -5")
 }
 
 // finishReturn — вернулись на базу: ровер свободен, доставка закрыта.
