@@ -35,7 +35,7 @@ func advanceOneDelivery(ctx context.Context, t *repository.Repository, state *do
 
 	if !isDelivered(d) {
 		// Едем к цели (с грузом медленнее)
-		if err := moveRoverTo(ctx, t, &rv, o.X, o.Y, roverSpeed(rv, o.Weight)); err != nil {
+		if err := moveRoverTo(ctx, t, &rv, o.X, o.Y, roverSpeed(rv, o.Weight), batteryPerCell(o.Weight)); err != nil {
 			return err
 		}
 		if rv.X == o.X && rv.Y == o.Y {
@@ -48,7 +48,7 @@ func advanceOneDelivery(ctx context.Context, t *repository.Repository, state *do
 	}
 
 	// Возврат к базе (пустой — полная скорость)
-	if err := moveRoverTo(ctx, t, &rv, BaseX, BaseY, rv.Speed); err != nil {
+	if err := moveRoverTo(ctx, t, &rv, o.X, o.Y, roverSpeed(rv, o.Weight), batteryPerCell(o.Weight)); err != nil {
 		return err
 	}
 	if rv.X == BaseX && rv.Y == BaseY {
@@ -66,11 +66,23 @@ func roverSpeed(rv domain.Rover, weight int) int {
 	return speed
 }
 
-// moveRoverTo — сдвигает ровер к точке и сохраняет позицию.
-func moveRoverTo(ctx context.Context, t *repository.Repository, rv *domain.Rover, tx, ty, speed int) error {
+// moveRoverTo — сдвигает ровер на speed клеток и списывает батарею за реальный путь.
+func moveRoverTo(ctx context.Context, t *repository.Repository, rv *domain.Rover, tx, ty, speed int, perCell float64) error {
 	nx, ny := moveToward(rv.X, rv.Y, tx, ty, speed)
 	if nx == rv.X && ny == rv.Y {
 		return nil
+	}
+	dx, dy := nx-rv.X, ny-rv.Y
+	if dx < 0 {
+		dx = -dx
+	}
+	if dy < 0 {
+		dy = -dy
+	}
+	cells := dx + dy
+	rv.Battery -= int(perCell * float64(cells))
+	if rv.Battery < 0 {
+		rv.Battery = 0
 	}
 	rv.X, rv.Y = nx, ny
 	return t.UpdateRover(ctx, *rv)
@@ -116,10 +128,6 @@ func finishReturn(ctx context.Context, t *repository.Repository, state *domain.G
 	result := "success"
 	if o.Status != "completed" {
 		result = "failed"
-	}
-	rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-	if rv.Battery < 0 {
-		rv.Battery = 0
 	}
 	rv.Status = "idle"
 	_ = t.UpdateRover(ctx, *rv)

@@ -37,15 +37,14 @@ func (s *Service) NextDay(ctx context.Context) error {
 
 // finalizeDay — проверяет конец игры (поражение по рейтингу или победа на 50-й день).
 func finalizeDay(ctx context.Context, t *repository.Repository, state *domain.GameState, day int) error {
-	if state.Rating <= 0 {
-		state.GameOver = true
-		if err := t.AddEvent(ctx, day, "Рейтинг базы упал до нуля — игра окончена"); err != nil {
-			return err
-		}
-	}
 	if day >= 50 {
 		state.GameOver = true
 		if err := t.AddEvent(ctx, day, "Игра завершена: вы победили, заработав "+itoa(state.Money)+" монет"); err != nil {
+			return err
+		}
+	} else if state.Rating <= 0 {
+		state.GameOver = true
+		if err := t.AddEvent(ctx, day, "Рейтинг базы упал до нуля — игра окончена"); err != nil {
 			return err
 		}
 	}

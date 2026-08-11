@@ -21,11 +21,12 @@ func handleOrders(ctx context.Context, t *repository.Repository, state *domain.G
 			_ = t.UpdateOrderStatus(ctx, o.ID, "expired")
 			_ = t.AddEvent(ctx, day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
 		} else if o.Status == "available" {
-			avail++
 			if o.Deadline < day {
 				state.Rating -= 3
 				_ = t.UpdateOrderStatus(ctx, o.ID, "expired")
 				_ = t.AddEvent(ctx, day, "Заказ «"+o.Title+"» не взят вовремя: рейтинг -3")
+			} else {
+				avail++
 			}
 		}
 	}

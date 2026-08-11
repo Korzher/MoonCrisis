@@ -51,7 +51,7 @@ func (s *Service) AssignRover(ctx context.Context, roverID, orderID int) error {
 		}
 
 		// Создаём доставку (в той же транзакции)
-		gs, err := t.GetGameState(ctx)
+		gs, err := t.GetGameStateForUpdate(ctx)
 		if err != nil {
 			return err
 		}
