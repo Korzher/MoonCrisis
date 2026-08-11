@@ -82,7 +82,7 @@ func (s *Service) BuyRover(ctx context.Context) error {
 			Name:     "Ровер", // имя обновим по фактическому id ниже
 			Battery:  100,
 			Capacity: 200,
-			Speed:    2,
+			Speed:    10,
 			Status:   "idle",
 			X:        BaseX,
 			Y:        BaseY,
