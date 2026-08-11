@@ -422,11 +422,11 @@ func (s *Service) InitGame(ctx context.Context) error {
 
 	// Пять начальных заказов
 	orders := []domain.Order{
-		{Title: "Углеводороды", Weight: 140, Reward: 300, Deadline: 6, Risk: 20, X: 3, Y: 3, Status: "available"},
-		{Title: "Кислородные баллоны", Weight: 80, Reward: 200, Deadline: 5, Risk: 10, X: 7, Y: 6, Status: "available"},
+		{Title: "Углеводороды", Weight: 140, Reward: 300, Deadline: 6, Risk: 7, X: 3, Y: 3, Status: "available"},
+		{Title: "Кислородные баллоны", Weight: 80, Reward: 200, Deadline: 5, Risk: 4, X: 7, Y: 6, Status: "available"},
 		{Title: "Образцы реголита", Weight: 40, Reward: 120, Deadline: 4, Risk: 0, X: 2, Y: 8, Status: "available"},
-		{Title: "Научное оборудование", Weight: 150, Reward: 350, Deadline: 8, Risk: 30, X: 6, Y: 2, Status: "available"},
-		{Title: "Тяжёлый слиток", Weight: 150, Reward: 380, Deadline: 9, Risk: 40, X: 0, Y: 0, Status: "available"},
+		{Title: "Научное оборудование", Weight: 150, Reward: 350, Deadline: 8, Risk: 11, X: 6, Y: 2, Status: "available"},
+		{Title: "Тяжёлый слиток", Weight: 150, Reward: 380, Deadline: 9, Risk: 14, X: 0, Y: 0, Status: "available"},
 	}
 	for _, o := range orders {
 		if _, err := s.repo.CreateOrder(ctx, o); err != nil {
