@@ -225,9 +225,10 @@ func (s *Service) NextDay(ctx context.Context) error {
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
 				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
 			} else if o.Deadline < gs.Day && o.Status == "available" {
-				// Не взяли вовремя — просто убираем из списка, без штрафа
+				// Не взяли вовремя — небольшой штраф за упущенный заказ
+				gs.Rating -= 2
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
-				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» снят (не взят вовремя)")
+				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» не взят вовремя: рейтинг -2")
 			}
 		}
 
