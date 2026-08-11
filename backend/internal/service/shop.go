@@ -11,7 +11,7 @@ import (
 // RepairRover — починить сломанный ровер.
 func (s *Service) RepairRover(ctx context.Context, roverID int) error {
 	return s.repo.Tx(ctx, func(t *repository.Repository) error {
-		gs, err := t.GetGameState(ctx)
+		gs, err := t.GetGameStateForUpdate(ctx)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func (s *Service) RepairRover(ctx context.Context, roverID int) error {
 // ChargeRover — полная зарядка батареи.
 func (s *Service) ChargeRover(ctx context.Context, roverID int) error {
 	return s.repo.Tx(ctx, func(t *repository.Repository) error {
-		gs, err := t.GetGameState(ctx)
+		gs, err := t.GetGameStateForUpdate(ctx)
 		if err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func (s *Service) ChargeRover(ctx context.Context, roverID int) error {
 func (s *Service) BuyRover(ctx context.Context) error {
 	const cost = 500
 	return s.repo.Tx(ctx, func(t *repository.Repository) error {
-		gs, err := t.GetGameState(ctx)
+		gs, err := t.GetGameStateForUpdate(ctx)
 		if err != nil {
 			return err
 		}

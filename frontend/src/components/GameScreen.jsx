@@ -24,12 +24,19 @@ export default function GameScreen({ onMenu }) {
     ])
     setState(st); setRovers(rv); setOrders(ord); setEvents(ev); setDeliveries(dlv)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const run = async () => { await load() }
+    run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function nextDay() {
+    if (busy) return
     setError('')
+    setBusy(true)
     try { await api.nextDay(); await load() }
     catch (e) { setError(e.message) }
+    finally { setBusy(false) }
   }
 
   async function send() {
@@ -55,7 +62,7 @@ export default function GameScreen({ onMenu }) {
         <span>День {state.day}</span>
         <span>💰 {state.money}</span>
         <span>⭐ Рейтинг {state.rating}</span>
-        <button onClick={nextDay}>Следующий день ➡</button>
+        <button onClick={nextDay} disabled={busy}>Следующий день ➡</button>
         <button onClick={() => setShopOpen(true)} className="shop-btn">🛒 Магазин</button>
         <button onClick={onMenu} className="ghost">В меню</button>
       </header>

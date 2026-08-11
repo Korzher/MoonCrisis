@@ -12,7 +12,7 @@ import (
 // NextDay — завершить день: обработать доставки, сгенерировать заказы, проверить конец игры.
 func (s *Service) NextDay(ctx context.Context) error {
 	return s.repo.Tx(ctx, func(t *repository.Repository) error {
-		gs, err := t.GetGameState(ctx)
+		gs, err := t.GetGameStateForUpdate(ctx)
 		if err != nil {
 			return err
 		}
