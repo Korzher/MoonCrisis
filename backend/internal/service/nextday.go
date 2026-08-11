@@ -148,7 +148,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 		}
 		if gs.Day >= 50 {
 			gs.GameOver = true
-			t.AddEvent(ctx, gs.Day, "Достигнут 50-й день — игра окончена")
+			t.AddEvent(ctx, gs.Day, "Игра завершена: вы победили, заработав "+itoa(gs.Money)+" монет")
 		}
 
 		return t.UpdateGameState(ctx, gs)

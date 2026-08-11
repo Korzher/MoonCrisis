@@ -81,7 +81,15 @@ export default function GameScreen({ onMenu }) {
         </aside>
       </div>
 
-      {state.game_over && <div className="gameover">Игра окончена</div>}
+      {state.game_over && (
+        <div className="gameover">
+          <div className="go-card">
+            <h2>Игра завершена</h2>
+            <p>{events[0] ? events[0].message : ''}</p>
+            <p className="muted">💰 Итог: {state.money}₽ · День {state.day} · ⭐ Рейтинг {state.rating}</p>
+          </div>
+        </div>
+      )}
 
       {shopOpen && (
         <ShopModal
