@@ -1,4 +1,4 @@
-const STATUS = { idle: 'свободен', on_mission: 'в полёте', broken: 'сломан', charging: 'зарядка' }
+const STATUS = { idle: 'свободен', on_mission: 'в пути', broken: 'сломан', charging: 'зарядка' }
 
 export default function RoverBar({ rovers = [], deliveries = [], orders = [], selectedRoverId, onSelect }) {
   return (
