@@ -25,7 +25,7 @@ func (s *Service) InitGame(ctx context.Context) error {
 		Name:     "Ровер-1",
 		Battery:  100,
 		Capacity: 100,
-		Speed:    8,
+		Speed:    5,
 		Status:   "idle",
 		X:        BaseX,
 		Y:        BaseY,
