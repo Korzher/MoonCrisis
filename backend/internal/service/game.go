@@ -26,18 +26,18 @@ type zone struct {
 
 func zoneAt(x, y int) zone {
 	switch {
-	case y >= 7 && x > 0 && x < 9: // Плато у базы (низ, кроме краёв)
-		return zone{speedMult: 1.0, risk: 0}
-	case y >= 4: // Горная гряда (середина + края низа)
-		return zone{speedMult: 0.7, risk: 20}
-	default: // Кратерное поле (верх)
-		return zone{speedMult: 0.5, risk: 40}
+	case y >= 7 && x > 0 && x < 9:
+		return zone{speedMult: 1.00, risk: 0}
+	case y >= 4:
+		return zone{speedMult: 0.85, risk: 20}
+	default:
+		return zone{speedMult: 0.75, risk: 40}
 	}
 }
 
 // Расход батареи на клетку: базовый 5 + вес/100
 func batteryPerCell(weight int) float64 {
-	return 5 + float64(weight)/100
+	return 2 + float64(weight)/100
 }
 
 // Время пути в днях: манхэттенское расстояние / скорость ровера / множитель зоны
@@ -45,7 +45,7 @@ func travelDays(rv domain.Rover, x, y int, weight int) int {
 	dist := math.Abs(float64(x-BaseX)) + math.Abs(float64(y-BaseY))
 	z := zoneAt(x, y)
 	days := (2 * dist) / (float64(rv.Speed) * z.speedMult)
-	weightFactor := 1.0 + float64(weight)/1500.0 // +66% на 1000 кг
+	weightFactor := 1.0 + float64(weight)/600.0 // ~+25% на 150 кг
 	return int(math.Ceil(days * weightFactor))
 }
 
@@ -216,8 +216,15 @@ func (s *Service) NextDay(ctx context.Context) error {
 		}
 
 		// Генерация новых заказов
-		for i := 0; i < 2+rand.Intn(2); i++ {
+		avail := 0
+		for _, o := range orders {
+			if o.Status == "available" {
+				avail++
+			}
+		}
+		for avail < 5 {
 			generateOrder(ctx, t, gs.Day)
+			avail++
 		}
 
 		// Конец игры
@@ -225,9 +232,9 @@ func (s *Service) NextDay(ctx context.Context) error {
 			gs.GameOver = true
 			t.AddEvent(ctx, gs.Day, "Рейтинг базы упал до нуля — игра окончена")
 		}
-		if gs.Day >= 20 {
+		if gs.Day >= 100 {
 			gs.GameOver = true
-			t.AddEvent(ctx, gs.Day, "Достигнут 20-й день — игра окончена")
+			t.AddEvent(ctx, gs.Day, "Достигнут 100-й день — игра окончена")
 		}
 
 		return t.UpdateGameState(ctx, gs)
@@ -240,18 +247,10 @@ func generateOrder(ctx context.Context, r *repository.Repository, day int) {
 	y := rand.Intn(10)
 	z := zoneAt(x, y)
 
-	weight := 50 + rand.Intn(450) // 50..500 кг
-	reward := weight/10 + rand.Intn(50)
-	deadline := day + 2 + rand.Intn(5)
-	risk := z.risk/2 + rand.Intn(20)
-
-	// Невыполнимый заказ: вес 1000 кг в кратерном поле
-	if rand.Intn(20) == 0 {
-		weight = 1000
-		reward = 500
-		risk = 60
-		y = rand.Intn(4)
-	}
+	weight := 30 + rand.Intn(121) // 30..150 кг
+	reward := weight*2 + rand.Intn(40)
+	deadline := day + 3 + rand.Intn(6) // 3..8 дней
+	risk := z.risk/2 + rand.Intn(15)
 
 	r.CreateOrder(ctx, domain.Order{
 		Title:    "Груз-" + itoa(weight) + "кг",
@@ -344,7 +343,7 @@ func (s *Service) BuyRover(ctx context.Context) error {
 			Name:     "Ровер-" + itoa(gs.Day+1),
 			Battery:  100,
 			Capacity: 200,
-			Speed:    2,
+			Speed:    10,
 			Status:   "idle",
 			X:        BaseX,
 			Y:        BaseY,
@@ -393,7 +392,7 @@ func (s *Service) InitGame(ctx context.Context) error {
 		Name:     "Ровер-1",
 		Battery:  100,
 		Capacity: 100,
-		Speed:    2,
+		Speed:    8,
 		Status:   "idle",
 		X:        BaseX,
 		Y:        BaseY,
@@ -405,11 +404,11 @@ func (s *Service) InitGame(ctx context.Context) error {
 
 	// Пять начальных заказов
 	orders := []domain.Order{
-		{Title: "Углеводороды", Weight: 120, Reward: 100, Deadline: 5, Risk: 20, X: 3, Y: 3, Status: "available"},
-		{Title: "Кислородные баллоны", Weight: 80, Reward: 70, Deadline: 4, Risk: 10, X: 7, Y: 6, Status: "available"},
-		{Title: "Образцы реголита", Weight: 40, Reward: 50, Deadline: 3, Risk: 0, X: 2, Y: 8, Status: "available"},
-		{Title: "Научное оборудование", Weight: 250, Reward: 200, Deadline: 7, Risk: 30, X: 6, Y: 2, Status: "available"},
-		{Title: "Мегалит-1000", Weight: 1000, Reward: 500, Deadline: 8, Risk: 60, X: 0, Y: 0, Status: "available"},
+		{Title: "Углеводороды", Weight: 140, Reward: 300, Deadline: 6, Risk: 20, X: 3, Y: 3, Status: "available"},
+		{Title: "Кислородные баллоны", Weight: 80, Reward: 200, Deadline: 5, Risk: 10, X: 7, Y: 6, Status: "available"},
+		{Title: "Образцы реголита", Weight: 40, Reward: 120, Deadline: 4, Risk: 0, X: 2, Y: 8, Status: "available"},
+		{Title: "Научное оборудование", Weight: 150, Reward: 350, Deadline: 8, Risk: 30, X: 6, Y: 2, Status: "available"},
+		{Title: "Тяжёлый слиток", Weight: 150, Reward: 380, Deadline: 9, Risk: 40, X: 0, Y: 0, Status: "available"},
 	}
 	for _, o := range orders {
 		if _, err := s.repo.CreateOrder(ctx, o); err != nil {
