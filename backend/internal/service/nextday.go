@@ -37,20 +37,30 @@ func (s *Service) NextDay(ctx context.Context) error {
 				return err
 			}
 
-			outDays := travelDays(rv, o.X, o.Y, o.Weight) // время до точки
-			totalDays := 2 * outDays                      // туда + обратно
+			outDays := travelDays(rv, o.X, o.Y, o.Weight) // туда: с грузом (дольше)
+			backDays := travelDays(rv, o.X, o.Y, 0)       // обратно: без груза (быстрее)
+			totalDays := outDays + backDays               // полный круг
+
 			elapsed := gs.Day - d.StartedDay
 			dist := abs(o.X-BaseX) + abs(o.Y-BaseY)
 
-			// 1) Движение ровера по карте (полный круг: туда, потом обратно)
+			// 1) Движение ровера: до точки за outDays, обратно за backDays
 			if dist > 0 {
-				total := totalDays
-				if total < 1 {
-					total = 1
+				var reached int
+				if outDays > 0 && elapsed < outDays {
+					reached = (elapsed * dist) / outDays
+				} else if backDays > 0 {
+					back := elapsed - outDays
+					if back < 0 {
+						back = 0
+					}
+					reached = dist + (back*dist)/backDays
 				}
-				reached := (elapsed * 2 * dist) / total
 				if reached > 2*dist {
 					reached = 2 * dist
+				}
+				if reached < 0 {
+					reached = 0
 				}
 				nx, ny := roverPos(BaseX, BaseY, o.X, o.Y, reached, dist)
 				if nx != rv.X || ny != rv.Y {

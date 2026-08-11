@@ -36,11 +36,12 @@ func batteryPerCell(weight int) float64 {
 	return 2 + float64(weight)/100
 }
 
-// travelDays — время пути до точки (манхэттен / скорость ровера / множитель зоны).
+// travelDays — время на путь в одну сторону от базы до точки.
+// dist — манхэттенское расстояние; вес замедляет движение (дольше туда).
 func travelDays(rv domain.Rover, x, y int, weight int) int {
 	dist := math.Abs(float64(x-BaseX)) + math.Abs(float64(y-BaseY))
 	z := zoneAt(x, y)
-	days := (2 * dist) / (float64(rv.Speed) * z.speedMult)
+	days := dist / (float64(rv.Speed) * z.speedMult)
 	weightFactor := 1.0 + float64(weight)/600.0 // ~+25% на 150 кг
 	return int(math.Ceil(days * weightFactor))
 }
