@@ -16,12 +16,13 @@ export default function GameScreen({ onMenu }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+  const [deliveries, setDeliveries] = useState([])
 
   async function load() {
-    const [st, rv, ord, ev] = await Promise.all([
-      api.state(), api.rovers(), api.orders(), api.events(),
+    const [st, rv, ord, ev, dlv] = await Promise.all([
+      api.state(), api.rovers(), api.orders(), api.events(), api.deliveries(),
     ])
-    setState(st); setRovers(rv); setOrders(ord); setEvents(ev)
+    setState(st); setRovers(rv); setOrders(ord); setEvents(ev); setDeliveries(dlv)
   }
   useEffect(() => { load() }, [])
 
@@ -66,7 +67,7 @@ export default function GameScreen({ onMenu }) {
           <EventsLog events={events} />
         </div>
         <aside className="sidebar">
-          <RoverBar rovers={rovers} selectedRoverId={selectedRoverId} onSelect={setSelectedRoverId} />
+           <RoverBar rovers={rovers} deliveries={deliveries} orders={orders} selectedRoverId={selectedRoverId} onSelect={setSelectedRoverId} />
           <OrderList orders={orders} day={state.day} selectedOrderId={selectedOrderId} onSelect={setSelectedOrderId} />
           <button onClick={send} disabled={busy} className="send">🚀 Отправить</button>
           {error && <div className="error">{error}</div>}

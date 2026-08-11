@@ -7,8 +7,9 @@ export default function OrderList({ orders = [], day = 1, selectedOrderId, onSel
         {shown.map(o => {
           const left = o.deadline - day
           return (
-            <div key={o.id}
-              className={`item ${o.id === selectedOrderId ? 'selected' : ''}`}
+            <div
+              key={o.id}
+              className={`item ${o.id === selectedOrderId ? 'selected' : ''} ${o.status === 'active' ? 'busy' : ''}`}
               onClick={() => o.status === 'available' && onSelect(o.id)}>
               <b>#{o.id} {o.title}</b>
               <span>⚖️ {o.weight}кг · 💰 {o.reward}₽ · ⚠️ риск {o.risk}</span>

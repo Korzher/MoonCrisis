@@ -177,7 +177,6 @@ func (s *Service) NextDay(ctx context.Context) error {
 				if rand.Intn(100) < risk {
 					// Провал: ровер сломался
 					gs.Rating -= 10
-					rv.Battery = 0
 					rv.Status = "broken"
 					rv.X, rv.Y = BaseX, BaseY
 					_ = t.UpdateRover(ctx, rv)

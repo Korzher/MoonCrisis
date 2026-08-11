@@ -23,4 +23,5 @@ func (h *Handlers) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/shop/repair", h.RepairRover)
 	mux.HandleFunc("POST /api/shop/charge", h.ChargeRover)
 	mux.HandleFunc("POST /api/shop/buy", h.BuyRover)
+	mux.HandleFunc("GET /api/deliveries", h.ListDeliveries)
 }
