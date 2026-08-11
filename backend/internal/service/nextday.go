@@ -123,7 +123,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
 				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
 			} else if o.Deadline < gs.Day && o.Status == "available" {
-				gs.Rating -= 2
+				gs.Rating -= 3
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
 				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» не взят вовремя: рейтинг -2")
 			}
