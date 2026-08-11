@@ -48,7 +48,7 @@ func advanceOneDelivery(ctx context.Context, t *repository.Repository, state *do
 	}
 
 	// Возврат к базе (пустой — полная скорость)
-	if err := moveRoverTo(ctx, t, &rv, o.X, o.Y, roverSpeed(rv, o.Weight), batteryPerCell(o.Weight)); err != nil {
+	if err := moveRoverTo(ctx, t, &rv, BaseX, BaseY, rv.Speed, batteryPerCell(0)); err != nil {
 		return err
 	}
 	if rv.X == BaseX && rv.Y == BaseY {
