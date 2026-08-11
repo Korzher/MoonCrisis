@@ -58,7 +58,7 @@ button:hover { background: #ffd97a; }
 .row { display: flex; gap: 8px; margin-top: 4px; }
 .row button { font-size: 13px; padding: 6px 10px; }
 .gameover { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 28px; font-weight: 800; background: rgba(0,0,0,.65); }
+  font-size: 28px; font-weight: 800; background: rgba(0,0,0,.65); z-index: 20; }
 .go-card { background: #1a2034; border: 1px solid #2f3a55; border-radius: 14px;
   padding: 28px 36px; text-align: center; max-width: 420px; }
 .go-card h2 { margin: 0 0 10px; font-size: 26px; }

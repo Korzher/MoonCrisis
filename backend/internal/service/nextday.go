@@ -66,9 +66,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 
 			// 3) Доехали до точки (и ещё не развернулись) — выполняем заказ
 			if !isDelivered(d) && rv.X == o.X && rv.Y == o.Y {
-				z := zoneAt(o.X, o.Y)
-				risk := z.risk + o.Risk
-				if rand.Intn(100) < risk {
+				if rand.Intn(100) < o.Risk {
 					// Провал: ровер сломался
 					gs.Rating -= 10
 					rv.Status = "broken"
