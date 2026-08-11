@@ -94,7 +94,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 					gs.Rating += 5
 					_ = t.UpdateOrderStatus(ctx, o.ID, "completed")
 					_ = t.MarkDelivered(ctx, d.ID)
-					_ = t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
+					_ = t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽, +5 рейтинг")
 				}
 			}
 
@@ -125,7 +125,7 @@ func (s *Service) NextDay(ctx context.Context) error {
 			} else if o.Deadline < gs.Day && o.Status == "available" {
 				gs.Rating -= 3
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
-				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» не взят вовремя: рейтинг -2")
+				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» не взят вовремя: рейтинг -3")
 			}
 		}
 
