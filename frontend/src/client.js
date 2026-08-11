@@ -18,7 +18,7 @@ export const api = {
   nextDay: () => req('/api/game/next-day', { method: 'POST' }),
   rovers: () => req('/api/rovers'),
   orders: () => req('/api/orders'),
-  deliveries: () => req('/api/deliveries'),
+  deliveries: () => req('/api/deliveries').then(d => (Array.isArray(d) ? d : [])),
   events: () => req('/api/events'),
   assign: (roverId, orderId) =>
     req('/api/deliveries', {

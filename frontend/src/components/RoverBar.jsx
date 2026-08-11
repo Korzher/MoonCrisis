@@ -6,8 +6,8 @@ export default function RoverBar({ rovers = [], deliveries = [], orders = [], se
       <h3>Роверы</h3>
       <div className="list">
         {rovers.map(r => {
-          const d = deliveries.find(x => x.rover_id === r.id)
-          const target = d && orders.find(o => o.id === d.order_id)
+          const d = (deliveries || []).find(x => x.rover_id === r.id)
+          const target = d && (orders || []).find(o => o.id === d.order_id)
           return (
             <div
               key={r.id}

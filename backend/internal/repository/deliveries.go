@@ -31,7 +31,7 @@ func (r *Repository) ListActiveDeliveries(ctx context.Context) ([]domain.Deliver
 	}
 	defer rows.Close()
 
-	var deliveries []domain.Delivery
+	deliveries := make([]domain.Delivery, 0)
 	for rows.Next() {
 		var d domain.Delivery
 		if err := rows.Scan(&d.ID, &d.RoverID, &d.OrderID, &d.StartedDay, &d.FinishDay, &d.Result, &d.Duration); err != nil {
