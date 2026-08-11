@@ -33,20 +33,9 @@ func (r *Repository) UpsertGameState(ctx context.Context, gs domain.GameState) e
 	return err
 }
 
-// ResetGame — удаляет все данные прошлой партии (порядок важен из-за FK).
+// ResetGame — полностью очищает данные прошлой партии и сбрасывает счётчики id.
 func (r *Repository) ResetGame(ctx context.Context) error {
-	if _, err := r.db.Exec(ctx, `DELETE FROM deliveries`); err != nil {
-		return err
-	}
-	if _, err := r.db.Exec(ctx, `DELETE FROM events`); err != nil {
-		return err
-	}
-	if _, err := r.db.Exec(ctx, `DELETE FROM orders`); err != nil {
-		return err
-	}
-	if _, err := r.db.Exec(ctx, `DELETE FROM rovers`); err != nil {
-		return err
-	}
-	_, err := r.db.Exec(ctx, `DELETE FROM game_state`)
+	_, err := r.db.Exec(ctx,
+		`TRUNCATE deliveries, events, orders, rovers, game_state RESTART IDENTITY CASCADE`)
 	return err
 }
