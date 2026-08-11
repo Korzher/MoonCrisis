@@ -248,9 +248,9 @@ func (s *Service) NextDay(ctx context.Context) error {
 			gs.GameOver = true
 			t.AddEvent(ctx, gs.Day, "Рейтинг базы упал до нуля — игра окончена")
 		}
-		if gs.Day >= 100 {
+		if gs.Day >= 50 {
 			gs.GameOver = true
-			t.AddEvent(ctx, gs.Day, "Достигнут 100-й день — игра окончена")
+			t.AddEvent(ctx, gs.Day, "Достигнут 50-й день — игра окончена")
 		}
 
 		return t.UpdateGameState(ctx, gs)
@@ -357,15 +357,19 @@ func (s *Service) BuyRover(ctx context.Context) error {
 			return errors.New("недостаточно средств")
 		}
 		gs.Money -= cost
-		if _, err := t.CreateRover(ctx, domain.Rover{
-			Name:     "Ровер-" + itoa(gs.Day+1),
+		newID, err := t.CreateRover(ctx, domain.Rover{
+			Name:     "Ровер", // имя обновим по фактическому id ниже
 			Battery:  100,
 			Capacity: 200,
-			Speed:    10,
+			Speed:    2,
 			Status:   "idle",
 			X:        BaseX,
 			Y:        BaseY,
-		}); err != nil {
+		})
+		if err != nil {
+			return err
+		}
+		if err := t.UpdateRoverName(ctx, newID, "Ровер-"+itoa(newID)); err != nil {
 			return err
 		}
 		if err := t.UpdateGameState(ctx, gs); err != nil {

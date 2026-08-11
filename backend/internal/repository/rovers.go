@@ -51,6 +51,11 @@ func (r *Repository) UpdateRover(ctx context.Context, rv domain.Rover) error {
 	return err
 }
 
+func (r *Repository) UpdateRoverName(ctx context.Context, id int, name string) error {
+	_, err := r.db.Exec(ctx, `UPDATE rovers SET name = $1 WHERE id = $2`, name, id)
+	return err
+}
+
 // ClaimRover — атомарно занимает ровер (только если был idle).
 func (r *Repository) ClaimRover(ctx context.Context, id int) (bool, error) {
 	tag, err := r.db.Exec(ctx,
