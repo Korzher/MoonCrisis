@@ -67,7 +67,7 @@ export default function GameScreen({ onMenu }) {
         </div>
         <aside className="sidebar">
           <RoverBar rovers={rovers} selectedRoverId={selectedRoverId} onSelect={setSelectedRoverId} />
-          <OrderList orders={orders} selectedOrderId={selectedOrderId} onSelect={setSelectedOrderId} />
+          <OrderList orders={orders} day={state.day} selectedOrderId={selectedOrderId} onSelect={setSelectedOrderId} />
           <button onClick={send} disabled={busy} className="send">🚀 Отправить</button>
           {error && <div className="error">{error}</div>}
         </aside>

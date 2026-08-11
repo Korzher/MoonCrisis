@@ -15,6 +15,13 @@ func (r *Repository) CreateDelivery(ctx context.Context, d domain.Delivery) (int
 	return id, err
 }
 
+// MarkDelivered — груз доставлен (награда начислена), но ровер ещё едет обратно.
+func (r *Repository) MarkDelivered(ctx context.Context, id int) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE deliveries SET result = 'delivered' WHERE id = $1 AND finish_day IS NULL`, id)
+	return err
+}
+
 func (r *Repository) ListActiveDeliveries(ctx context.Context) ([]domain.Delivery, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT id, rover_id, order_id, started_day, finish_day, COALESCE(result, ''), duration

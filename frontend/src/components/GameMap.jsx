@@ -22,11 +22,14 @@ export default function GameMap({ rovers = [], orders = [], selectedOrderId, onS
           onClick={() => order && onSelectOrder && onSelectOrder(order.id)}
         >
           {isBase && <span className="base-icon">🏠</span>}
-          {rover && <span className="rover-icon">🚙</span>}
-          {order && !isBase && (
-            <span className={`order-mark ${order.id === selectedOrderId ? 'selected' : ''}`}>
-              {order.id}
-            </span>
+          {rover ? (
+            <span className="rover-icon">🚙</span>
+          ) : (
+            order && !isBase && (
+              <span className={`order-mark ${order.id === selectedOrderId ? 'selected' : ''}`}>
+                {order.id}
+              </span>
+            )
           )}
         </div>
       )

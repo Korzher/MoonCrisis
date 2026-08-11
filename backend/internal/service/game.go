@@ -132,11 +132,12 @@ func (s *Service) NextDay(ctx context.Context) error {
 
 		gs.Day++
 
-		// Обработка активных доставок
 		deliveries, err := t.ListActiveDeliveries(ctx)
 		if err != nil {
 			return err
 		}
+
+		// Обработка активных доставок
 		for _, d := range deliveries {
 			rv, err := t.GetRover(ctx, d.RoverID)
 			if err != nil {
@@ -147,58 +148,69 @@ func (s *Service) NextDay(ctx context.Context) error {
 				return err
 			}
 
-			duration := travelDays(rv, o.X, o.Y, o.Weight)
-			if gs.Day >= d.StartedDay+duration {
-				z := zoneAt(o.X, o.Y)
-				risk := z.risk + o.Risk
-				if rand.Intn(100) < risk {
-					// Провал
-					gs.Rating -= 10
-					rv.Battery = 0
-					rv.Status = "broken"
-					rv.X, rv.Y = BaseX, BaseY
-					t.UpdateRover(ctx, rv)
-					t.UpdateOrderStatus(ctx, o.ID, "failed")
-					t.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
-					t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
-				} else {
-					if o.Deadline < gs.Day {
-						// Опоздали — без награды
-						rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-						if rv.Battery < 0 {
-							rv.Battery = 0
-						}
-						rv.Status = "idle"
-						rv.X, rv.Y = BaseX, BaseY
-						t.UpdateRover(ctx, rv)
-						t.CompleteDelivery(ctx, d.ID, gs.Day, "failed", duration)
-						t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
-					} else {
-						gs.Money += o.Reward
-						gs.Rating += 5
-						rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
-						if rv.Battery < 0 {
-							rv.Battery = 0
-						}
-						rv.Status = "idle"
-						rv.X, rv.Y = BaseX, BaseY
-						t.UpdateRover(ctx, rv)
-						t.UpdateOrderStatus(ctx, o.ID, "completed")
-						t.CompleteDelivery(ctx, d.ID, gs.Day, "success", duration)
-						t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
-					}
+			outDays := travelDays(rv, o.X, o.Y, o.Weight) // время до точки
+			totalDays := 2 * outDays                      // туда + обратно
+			elapsed := gs.Day - d.StartedDay
+			dist := abs(o.X-BaseX) + abs(o.Y-BaseY)
+
+			// 1) Движение ровера по карте (полный круг: туда, потом обратно)
+			if dist > 0 {
+				total := totalDays
+				if total < 1 {
+					total = 1
 				}
-			} else if elapsed := gs.Day - d.StartedDay; elapsed > 0 {
-				dist := abs(o.X-BaseX) + abs(o.Y-BaseY)
-				reached := (elapsed * 2 * dist) / duration
+				reached := (elapsed * 2 * dist) / total
 				if reached > 2*dist {
 					reached = 2 * dist
 				}
 				nx, ny := roverPos(BaseX, BaseY, o.X, o.Y, reached, dist)
 				if nx != rv.X || ny != rv.Y {
 					rv.X, rv.Y = nx, ny
-					t.UpdateRover(ctx, rv)
+					_ = t.UpdateRover(ctx, rv)
 				}
+			}
+
+			// 2) Доехал до точки — начисляем награду (заказ считается выполненным)
+			if !isDelivered(d) && gs.Day >= d.StartedDay+outDays {
+				z := zoneAt(o.X, o.Y)
+				risk := z.risk + o.Risk
+				if rand.Intn(100) < risk {
+					// Провал: ровер сломался
+					gs.Rating -= 10
+					rv.Battery = 0
+					rv.Status = "broken"
+					rv.X, rv.Y = BaseX, BaseY
+					_ = t.UpdateRover(ctx, rv)
+					_ = t.UpdateOrderStatus(ctx, o.ID, "failed")
+					_ = t.CompleteDelivery(ctx, d.ID, gs.Day, "failed", totalDays)
+					_ = t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
+					continue
+				}
+				if o.Deadline < gs.Day {
+					// Опоздали: без награды, но возврат всё равно нужен
+					_ = t.UpdateOrderStatus(ctx, o.ID, "expired")
+					_ = t.MarkDelivered(ctx, d.ID)
+					_ = t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
+				} else {
+					gs.Money += o.Reward
+					gs.Rating += 5
+					_ = t.UpdateOrderStatus(ctx, o.ID, "completed")
+					_ = t.MarkDelivered(ctx, d.ID)
+					_ = t.AddEvent(ctx, gs.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
+				}
+			}
+
+			// 3) Вернулся на базу — ровер снова свободен
+			if isDelivered(d) && gs.Day >= d.StartedDay+totalDays {
+				rv.Battery -= int(batteryCost(o.X, o.Y, o.Weight))
+				if rv.Battery < 0 {
+					rv.Battery = 0
+				}
+				rv.Status = "idle"
+				rv.X, rv.Y = BaseX, BaseY
+				_ = t.UpdateRover(ctx, rv)
+				_ = t.CompleteDelivery(ctx, d.ID, gs.Day, "success", totalDays)
+				_ = t.AddEvent(ctx, gs.Day, "Ровер вернулся на базу")
 			}
 		}
 
@@ -208,10 +220,14 @@ func (s *Service) NextDay(ctx context.Context) error {
 			return err
 		}
 		for _, o := range orders {
-			if o.Status == "active" && o.Deadline < gs.Day {
+			if o.Deadline < gs.Day && o.Status == "active" {
 				gs.Rating -= 5
 				t.UpdateOrderStatus(ctx, o.ID, "expired")
 				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» просрочен: рейтинг -5")
+			} else if o.Deadline < gs.Day && o.Status == "available" {
+				// Не взяли вовремя — просто убираем из списка, без штрафа
+				t.UpdateOrderStatus(ctx, o.ID, "expired")
+				t.AddEvent(ctx, gs.Day, "Заказ «"+o.Title+"» снят (не взят вовремя)")
 			}
 		}
 
@@ -268,6 +284,8 @@ func generateOrder(ctx context.Context, r *repository.Repository, day int) {
 func itoa(n int) string {
 	return strconv.Itoa(n)
 }
+
+func isDelivered(d domain.Delivery) bool { return d.Result == "delivered" }
 
 // RepairRover — починить сломанный ровер
 func (s *Service) RepairRover(ctx context.Context, roverID int) error {

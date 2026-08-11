@@ -20,7 +20,7 @@ button:hover { background: #ffd97a; }
 .zone-plateau { background: #2e4d3a; }
 .cell.base { background: #5b7a3a; }
 .base-icon { font-size: 18px; }
-.rover-icon { position: absolute; font-size: 18px; }
+.rover-icon { position: absolute; font-size: 18px; z-index: 3; }
 .order-mark {
   position: absolute; font-size: 12px; font-weight: 700; width: 20px; height: 20px;
   line-height: 20px; text-align: center; border-radius: 50%;
