@@ -86,21 +86,21 @@ func settleDelivery(ctx context.Context, t *repository.Repository, state *domain
 		_ = t.UpdateRover(ctx, *rv)
 		_ = t.UpdateOrderStatus(ctx, o.ID, "failed")
 		_ = t.CompleteDelivery(ctx, d.ID, state.Day, "failed", 0)
-		return t.AddEvent(ctx, state.Day, "Доставка «"+o.Title+"» провалена: ровер сломан")
+		return t.AddEvent(ctx, state.Day, "Доставка «"+o.Title+"» провалена: ровер сломан, рейтинг -10")
 	}
 	if o.Deadline < state.Day {
 		// Опоздали: приехали, но срок прошёл
 		state.Rating -= 5
 		_ = t.UpdateOrderStatus(ctx, o.ID, "expired")
 		_ = t.MarkDelivered(ctx, d.ID)
-		return t.AddEvent(ctx, state.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды")
+		return t.AddEvent(ctx, state.Day, "Заказ «"+o.Title+"» доставлен слишком поздно: без награды, рейтинг -5")
 	}
 	// Успех
 	state.Money += o.Reward
 	state.Rating += 5
 	_ = t.UpdateOrderStatus(ctx, o.ID, "completed")
 	_ = t.MarkDelivered(ctx, d.ID)
-	return t.AddEvent(ctx, state.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽")
+	return t.AddEvent(ctx, state.Day, "Доставка «"+o.Title+"» выполнена: +"+itoa(o.Reward)+"₽, рейтинг +5")
 }
 
 // turnBack — разворот: не доехали, а дедлайн прошёл.
