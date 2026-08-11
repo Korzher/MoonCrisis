@@ -266,7 +266,7 @@ func generateOrder(ctx context.Context, r *repository.Repository, day int) {
 	weight := 30 + rand.Intn(121) // 30..150 кг
 	reward := weight*2 + rand.Intn(40)
 	deadline := day + 3 + rand.Intn(6) // 3..8 дней
-	risk := z.risk/2 + rand.Intn(15)
+	risk := 5 + int(float64(rand.Intn(20))*float64(z.risk)/100.0)
 
 	r.CreateOrder(ctx, domain.Order{
 		Title:    "Груз-" + itoa(weight) + "кг",
